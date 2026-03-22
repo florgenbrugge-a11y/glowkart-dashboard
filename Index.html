@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GlowKart Experience – Omzetprognose Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3e;
+    --accent: #ff6b35;
+    --accent2: #00d4aa;
+    --accent3: #7c6fff;
+    --text: #e8e8f0;
+    --muted: #7a7a9a;
+    --karting: #ff6b35;
+    --horeca: #00d4aa;
+    --arcade: #7c6fff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* GRID BACKGROUND */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(124,111,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,111,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* HEADER */
+  header {
+    padding: 48px 0 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+  .header-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  header h1 {
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 600;
+    letter-spacing: -1px;
+    line-height: 1.1;
+    background: linear-gradient(135deg, var(--text) 0%, var(--muted) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header-sub {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 300;
+  }
+
+  /* NAV TABS */
+  .nav {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 36px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px;
+    flex-wrap: wrap;
+  }
+  .nav-btn {
+    flex: 1;
+    min-width: 100px;
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .nav-btn:hover { color: var(--text); background: var(--surface2); }
+  .nav-btn.active {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  /* VIEWS */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* KPI GRID */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .kpi:hover { border-color: var(--accent3); }
+  .kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent-color, var(--accent));
+  }
+  .kpi-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; font-family: 'Space Mono', monospace; }
+  .kpi-value { font-size: 28px; font-weight: 600; letter-spacing: -1px; }
+  .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .kpi-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 6px;
+  }
+  .badge-up { background: rgba(0,212,170,0.15); color: var(--accent2); }
+
+  /* CHART CARDS */
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .chart-card h3 {
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 20px;
+  }
+  .chart-wrap { position: relative; width: 100%; }
+
+  /* GRID 2 COL */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  /* LEGEND */
+  .legend { display: flex; gap: 20px; margin-bottom: 16px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* YEAR SELECTOR */
+  .year-btns { display: flex; gap: 8px; margin-bottom: 20px; }
+  .year-btn {
+    padding: 6px 18px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .year-btn:hover { border-color: var(--accent3); color: var(--text); }
+  .year-btn.active { background: var(--accent3); border-color: var(--accent3); color: #fff; }
+
+  /* TABLE */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .data-table th {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 12px;
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table th:first-child { text-align: left; }
+  .data-table td {
+    padding: 10px 12px;
+    text-align: right;
+    border-bottom: 1px solid rgba(42,42,62,0.5);
+    color: var(--text);
+  }
+  .data-table td:first-child { text-align: left; color: var(--muted); font-size: 12px; }
+  .data-table tr:hover td { background: var(--surface2); }
+  .data-table .total-row td { color: var(--accent2); font-weight: 600; border-top: 1px solid var(--border); }
+  .data-table .karting-row td { color: var(--karting); }
+
+  /* AANNAMES GRID */
+  .aannames-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .aanname-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .aanname-card h4 {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 14px;
+  }
+  .aanname-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(42,42,62,0.5);
+    gap: 12px;
+  }
+  .aanname-row:last-child { border-bottom: none; }
+  .aanname-label { font-size: 12px; color: var(--muted); flex: 1; }
+  .aanname-value { font-size: 13px; font-weight: 600; font-family: 'Space Mono', monospace; color: var(--text); white-space: nowrap; }
+
+  /* SCENARIO SLIDER */
+  .scenario-section { margin-bottom: 32px; }
+  .slider-row { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+  .slider-label { font-size: 13px; color: var(--muted); width: 220px; flex-shrink: 0; }
+  input[type=range] {
+    flex: 1;
+    accent-color: var(--accent3);
+    cursor: pointer;
+  }
+  .slider-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    color: var(--accent3);
+    width: 60px;
+    text-align: right;
+  }
+  .scenario-result {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .scenario-kpi {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+  }
+  .scenario-kpi .s-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; font-family: 'Space Mono', monospace; letter-spacing: 1px; text-transform: uppercase; }
+  .scenario-kpi .s-val { font-size: 22px; font-weight: 600; color: var(--accent2); }
+
+  /* TIMELINE */
+  .timeline { position: relative; padding-left: 24px; }
+  .timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 1px; background: var(--border); }
+  .timeline-item { position: relative; margin-bottom: 24px; }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 6px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+  }
+  .timeline-year { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 2px; margin-bottom: 4px; }
+  .timeline-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+  .timeline-text { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  /* PROGRESS BAR */
+  .progress-wrap { margin-bottom: 14px; }
+  .progress-header { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; }
+  .progress-label { color: var(--muted); }
+  .progress-val { font-family: 'Space Mono', monospace; font-weight: 600; }
+  .progress-bar-bg { background: var(--surface2); border-radius: 4px; height: 6px; overflow: hidden; }
+  .progress-bar { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
+
+  /* FOOTER */
+  footer {
+    margin-top: 60px;
+    padding: 24px 0;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 600px) {
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .scenario-result { grid-template-columns: 1fr; }
+    .slider-label { width: 140px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="header-tag">Omzetprognose Dashboard — v2.0</div>
+    <h1>GlowKart Experience</h1>
+    <p class="header-sub">Vlaams-Brabant | Jaar 1 – Opstartfase → Groei → Volwassen | Gebaseerd op concurrentieanalyse</p>
+  </header>
+
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showView('overzicht')">Overzicht</button>
+    <button class="nav-btn" onclick="showView('maand')">Maandverloop</button>
+    <button class="nav-btn" onclick="showView('producten')">Per product</button>
+    <button class="nav-btn" onclick="showView('scenario')">Scenario</button>
+    <button class="nav-btn" onclick="showView('aannames')">Aannames</button>
+    <button class="nav-btn" onclick="showView('tabel')">Data tabel</button>
+  </nav>
+
+  <!-- ====== OVERZICHT ====== -->
+  <div class="view active" id="view-overzicht">
+    <div class="kpi-grid">
+      <div class="kpi" style="--accent-color: var(--karting)">
+        <div class="kpi-label">Jaar 1 — Totaal</div>
+        <div class="kpi-value">€327.606</div>
+        <div class="kpi-sub">Opstartfase – onbekend merk</div>
+      </div>
+      <div class="kpi" style="--accent-color: var(--horeca)">
+        <div class="kpi-label">Jaar 2 — Totaal</div>
+        <div class="kpi-value">€552.248</div>
+        <div class="kpi-sub">Groeifase</div>
+        <span class="kpi-badge badge-up">+69% vs J1</span>
+      </div>
+      <div class="kpi" style="--accent-color: var(--arcade)">
+        <div class="kpi-label">Jaar 3 — Totaal</div>
+        <div class="kpi-value">€762.849</div>
+        <div class="kpi-sub">Volwassen fase</div>
+        <span class="kpi-badge badge-up">+38% vs J2</span>
+      </div>
+      <div class="kpi" style="--accent-color: #ff6b35">
+        <div class="kpi-label">3-jaar cumulatief</div>
+        <div class="kpi-value">€1.642.703</div>
+        <div class="kpi-sub">Alle producten samen</div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Omzetontwikkeling per jaar — gestapeld</h3>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:var(--karting)"></span>Karting</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--horeca)"></span>Horeca & Bar</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--arcade)"></span>Arcade</span>
+      </div>
+      <div class="chart-wrap" style="height:300px"><canvas id="cOverview"></canvas></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="chart-card">
+        <h3>Productmix jaar 1</h3>
+        <div class="chart-wrap" style="height:220px"><canvas id="cPie1"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Productmix jaar 3</h3>
+        <div class="chart-wrap" style="height:220px"><canvas id="cPie3"></canvas></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Groeipercentage per jaar</h3>
+      <div class="chart-wrap" style="height:220px"><canvas id="cGrowth"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ====== MAAND ====== -->
+  <div class="view" id="view-maand">
+    <div class="year-btns">
+      <button class="year-btn active" onclick="setYear(1,this)">Jaar 1</button>
+      <button class="year-btn" onclick="setYear(2,this)">Jaar 2</button>
+      <button class="year-btn" onclick="setYear(3,this)">Jaar 3</button>
+    </div>
+
+    <div class="kpi-grid" id="maand-kpis">
+      <div class="kpi" style="--accent-color:var(--karting)">
+        <div class="kpi-label">Piekmaand</div>
+        <div class="kpi-value" id="mk-piek">Augustus</div>
+        <div class="kpi-sub" id="mk-piek-val">€32.760 totaal</div>
+      </div>
+      <div class="kpi" style="--accent-color:var(--arcade)">
+        <div class="kpi-label">Rustigste maand</div>
+        <div class="kpi-value" id="mk-low">Januari</div>
+        <div class="kpi-sub" id="mk-low-val">€17.745 totaal</div>
+      </div>
+      <div class="kpi" style="--accent-color:var(--horeca)">
+        <div class="kpi-label">Gem. per maand</div>
+        <div class="kpi-value" id="mk-avg">€25.935</div>
+        <div class="kpi-sub">Op basis van jaargemiddelde</div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Maandelijkse omzet — gestapeld per product</h3>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:var(--karting)"></span>Karting</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--horeca)"></span>Horeca</span>
+        <span class="legend-item"><span class="legend-dot" style="background:var(--arcade)"></span>Arcade</span>
+      </div>
+      <div class="chart-wrap" style="height:300px"><canvas id="cMonthly"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Seizoensfactoren — alle 3 jaren vergelijking</h3>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#ff6b35"></span>Jaar 1</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#00d4aa"></span>Jaar 2</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#7c6fff"></span>Jaar 3</span>
+      </div>
+      <div class="chart-wrap" style="height:280px"><canvas id="cSeizoen"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ====== PRODUCTEN ====== -->
+  <div class="view" id="view-producten">
+    <div class="kpi-grid">
+      <div class="kpi" style="--accent-color:var(--karting)">
+        <div class="kpi-label">Karting — Jaar 3 totaal</div>
+        <div class="kpi-value" style="color:var(--karting)">€644.176</div>
+        <div class="kpi-sub">84% van totale omzet</div>
+      </div>
+      <div class="kpi" style="--accent-color:var(--horeca)">
+        <div class="kpi-label">Horeca — Jaar 3 totaal</div>
+        <div class="kpi-value" style="color:var(--horeca)">€80.522</div>
+        <div class="kpi-sub">11% van totale omzet</div>
+      </div>
+      <div class="kpi" style="--accent-color:var(--arcade)">
+        <div class="kpi-label">Arcade — Jaar 3 totaal</div>
+        <div class="kpi-value" style="color:var(--arcade)">€40.261</div>
+        <div class="kpi-sub">5% van totale omzet</div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Omzet per product — Jaar 1 vs Jaar 2 vs Jaar 3</h3>
+      <div class="chart-wrap" style="height:280px"><canvas id="cProducts"></canvas></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="chart-card">
+        <h3>Karting — groei per jaar</h3>
+        <div class="chart-wrap" style="height:220px"><canvas id="cKartGrow"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Horeca & Arcade — groei per jaar</h3>
+        <div class="chart-wrap" style="height:220px"><canvas id="cSecGrow"></canvas></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Productaandeel van totale omzet per jaar (%)</h3>
+      <div class="chart-wrap" style="height:200px"><canvas id="cShare"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ====== SCENARIO ====== -->
+  <div class="view" id="view-scenario">
+    <div class="chart-card scenario-section">
+      <h3>Scenario-calculator — pas de parameters aan</h3>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:24px">Schuif de sliders om te zien wat er verandert aan de omzetprognose.</p>
+
+      <div class="slider-row">
+        <span class="slider-label">Prijs per sessie karting (€)</span>
+        <input type="range" min="15" max="35" value="24" step="1" oninput="updateScenario()" id="s-prijs">
+        <span class="slider-val" id="sv-prijs">€24</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Bezettingsgraad werkdag J1 (%)</span>
+        <input type="range" min="5" max="30" value="10" step="1" oninput="updateScenario()" id="s-bezJ1">
+        <span class="slider-val" id="sv-bezJ1">10%</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Bezettingsgraad werkdag J3 (%)</span>
+        <input type="range" min="15" max="60" value="25" step="1" oninput="updateScenario()" id="s-bezJ3">
+        <span class="slider-val" id="sv-bezJ3">25%</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Horecabesteding per koper (€)</span>
+        <input type="range" min="2" max="15" value="5" step="0.5" oninput="updateScenario()" id="s-horeca">
+        <span class="slider-val" id="sv-horeca">€5</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">% bezoekers dat iets koopt (%)</span>
+        <input type="range" min="20" max="90" value="60" step="5" oninput="updateScenario()" id="s-pct">
+        <span class="slider-val" id="sv-pct">60%</span>
+      </div>
+
+      <div class="scenario-result">
+        <div class="scenario-kpi">
+          <div class="s-label">Jaar 1</div>
+          <div class="s-val" id="sc-j1">€327.606</div>
+        </div>
+        <div class="scenario-kpi">
+          <div class="s-label">Jaar 2</div>
+          <div class="s-val" id="sc-j2">€552.248</div>
+        </div>
+        <div class="scenario-kpi">
+          <div class="s-label">Jaar 3</div>
+          <div class="s-val" id="sc-j3">€762.849</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Scenario — resultaat per jaar</h3>
+      <div class="chart-wrap" style="height:260px"><canvas id="cScenario"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Groeiscenario — fasen</h3>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-year">JAAR 1 — OPSTARTFASE</div>
+          <div class="timeline-title">Onbekend merk, beperkte bezetting</div>
+          <div class="timeline-text">Werkdag 10% bezetting, weekend 25%. Zichtbaarheid opbouwen via social media. Conservatief scenario om verrassingen te vermijden. Focus op klantenbinding via arcade en horeca-aanbod.</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-year">JAAR 2 — GROEIFASE</div>
+          <div class="timeline-title">Mond-tot-mondreclame & vaste klanten</div>
+          <div class="timeline-text">Werkdag 18% bezetting, weekend 40%. GlowKart wordt bekender in de regio. Sterkere bezetting en meer arcadegebruik. Verwachte groei van +69% t.o.v. jaar 1.</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-year">JAAR 3 — VOLWASSEN FASE</div>
+          <div class="timeline-title">Hoge bezetting, regelmatige events</div>
+          <div class="timeline-text">Werkdag 25% bezetting, weekend 55%. Gekende naam in de regio Vlaams-Brabant. Regelmatige teambuilding-events en groepsboekingen. Groei van +38% t.o.v. jaar 2.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== AANNAMES ====== -->
+  <div class="view" id="view-aannames">
+    <div style="margin-bottom:20px">
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px">
+        <strong style="color:var(--accent)">Locatie:</strong> Vlaams-Brabant (Strombeek-Bever) &nbsp;|&nbsp;
+        <strong style="color:var(--accent)">Benchmark:</strong> Antwerp Amusement Center €15/10min · Area 53 €20/10min · Experience Factory €27/14min &nbsp;|&nbsp;
+        <strong style="color:var(--accent)">Bron:</strong> Projectdossier Groep 13 – Statbel 2024 · Go-Kart Market 2026–2035
+      </div>
+    </div>
+
+    <div class="aannames-grid">
+      <div class="aanname-card">
+        <h4>A. Openingstijden & Capaciteit</h4>
+        <div class="aanname-row"><span class="aanname-label">Werkdagen open per week</span><span class="aanname-value">5 dagen</span></div>
+        <div class="aanname-row"><span class="aanname-label">Weekenddagen open per week</span><span class="aanname-value">2 dagen</span></div>
+        <div class="aanname-row"><span class="aanname-label">Uren per werkdag</span><span class="aanname-value">6 uur</span></div>
+        <div class="aanname-row"><span class="aanname-label">Uren per weekenddag</span><span class="aanname-value">8 uur</span></div>
+        <div class="aanname-row"><span class="aanname-label">Aantal karts beschikbaar</span><span class="aanname-value">10 stuks</span></div>
+        <div class="aanname-row"><span class="aanname-label">Sessieduur</span><span class="aanname-value">13 min</span></div>
+        <div class="aanname-row"><span class="aanname-label">Wisseltijd tussen sessies</span><span class="aanname-value">5 min</span></div>
+        <div class="aanname-row"><span class="aanname-label">Max sessies per werkdag</span><span class="aanname-value">200 sessies</span></div>
+        <div class="aanname-row"><span class="aanname-label">Max sessies per weekenddag</span><span class="aanname-value">267 sessies</span></div>
+      </div>
+
+      <div class="aanname-card">
+        <h4>B. Bezettingsgraad</h4>
+        <div class="aanname-row"><span class="aanname-label">Werkdag – Jaar 1</span><span class="aanname-value" style="color:var(--karting)">10%</span></div>
+        <div class="aanname-row"><span class="aanname-label">Werkdag – Jaar 2</span><span class="aanname-value" style="color:var(--horeca)">18%</span></div>
+        <div class="aanname-row"><span class="aanname-label">Werkdag – Jaar 3</span><span class="aanname-value" style="color:var(--arcade)">25%</span></div>
+        <div class="aanname-row"><span class="aanname-label">Weekenddag – Jaar 1</span><span class="aanname-value" style="color:var(--karting)">25%</span></div>
+        <div class="aanname-row"><span class="aanname-label">Weekenddag – Jaar 2</span><span class="aanname-value" style="color:var(--horeca)">40%</span></div>
+        <div class="aanname-row"><span class="aanname-label">Weekenddag – Jaar 3</span><span class="aanname-value" style="color:var(--arcade)">55%</span></div>
+        <br>
+        <div style="margin-top:8px">
+          <div class="progress-wrap">
+            <div class="progress-header"><span class="progress-label">Bezetting Jaar 1 (werkdag)</span><span class="progress-val" style="color:var(--karting)">10%</span></div>
+            <div class="progress-bar-bg"><div class="progress-bar" style="width:10%;background:var(--karting)"></div></div>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-header"><span class="progress-label">Bezetting Jaar 2 (werkdag)</span><span class="progress-val" style="color:var(--horeca)">18%</span></div>
+            <div class="progress-bar-bg"><div class="progress-bar" style="width:18%;background:var(--horeca)"></div></div>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-header"><span class="progress-label">Bezetting Jaar 3 (werkdag)</span><span class="progress-val" style="color:var(--arcade)">25%</span></div>
+            <div class="progress-bar-bg"><div class="progress-bar" style="width:25%;background:var(--arcade)"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="aanname-card">
+        <h4>C. Prijzen</h4>
+        <div class="aanname-row"><span class="aanname-label">Prijs per sessie – individueel</span><span class="aanname-value">€24</span></div>
+        <div class="aanname-row"><span class="aanname-label">Prijs per minuut</span><span class="aanname-value">€2</span></div>
+        <div class="aanname-row"><span class="aanname-label">Arcade – vaste toegang (inbegrepen)</span><span class="aanname-value">€5</span></div>
+        <div class="aanname-row"><span class="aanname-label">Arcade – losse toegang Jaar 1</span><span class="aanname-value">€6</span></div>
+        <div class="aanname-row"><span class="aanname-label">Arcade – losse toegang Jaar 2</span><span class="aanname-value">€7,50</span></div>
+        <div class="aanname-row"><span class="aanname-label">Arcade – losse toegang Jaar 3</span><span class="aanname-value">€9</span></div>
+      </div>
+
+      <div class="aanname-card">
+        <h4>D. Horeca & Arcade</h4>
+        <div class="aanname-row"><span class="aanname-label">Gem. horecabesteding per koper</span><span class="aanname-value">€5</span></div>
+        <div class="aanname-row"><span class="aanname-label">% bezoekers dat iets koopt</span><span class="aanname-value">60%</span></div>
+        <div class="aanname-row"><span class="aanname-label">Arcade-losse toegang Jaar 1</span><span class="aanname-value">€1.200/mnd</span></div>
+        <div class="aanname-row"><span class="aanname-label">Arcade: pool, darten, ping-pong</span><span class="aanname-value">✓</span></div>
+        <div class="aanname-row"><span class="aanname-label">Merchandise</span><span class="aanname-value" style="color:var(--muted)">Verwijderd v2</span></div>
+      </div>
+
+      <div class="aanname-card">
+        <h4>E. Seizoensfactoren</h4>
+        <div class="aanname-row"><span class="aanname-label">Januari (laagste)</span><span class="aanname-value">0,65</span></div>
+        <div class="aanname-row"><span class="aanname-label">Februari</span><span class="aanname-value">0,85</span></div>
+        <div class="aanname-row"><span class="aanname-label">Maart</span><span class="aanname-value">0,80</span></div>
+        <div class="aanname-row"><span class="aanname-label">April</span><span class="aanname-value">1,05</span></div>
+        <div class="aanname-row"><span class="aanname-label">Mei / Juni</span><span class="aanname-value">0,90</span></div>
+        <div class="aanname-row"><span class="aanname-label">Juli</span><span class="aanname-value">1,15</span></div>
+        <div class="aanname-row"><span class="aanname-label">Augustus (hoogste)</span><span class="aanname-value">1,20</span></div>
+        <div class="aanname-row"><span class="aanname-label">September</span><span class="aanname-value">0,80</span></div>
+        <div class="aanname-row"><span class="aanname-label">Oktober</span><span class="aanname-value">1,00</span></div>
+        <div class="aanname-row"><span class="aanname-label">November</span><span class="aanname-value">0,95</span></div>
+        <div class="aanname-row"><span class="aanname-label">December</span><span class="aanname-value">1,15</span></div>
+      </div>
+
+      <div class="aanname-card">
+        <h4>F. Benchmarks concurrenten</h4>
+        <div class="aanname-row"><span class="aanname-label">Antwerp Amusement Center</span><span class="aanname-value">€15 / 10 min</span></div>
+        <div class="aanname-row"><span class="aanname-label">Area 53</span><span class="aanname-value">€20 / 10 min</span></div>
+        <div class="aanname-row"><span class="aanname-label">Experience Factory</span><span class="aanname-value">€27 / 14 min</span></div>
+        <div class="aanname-row"><span class="aanname-label">GlowKart (eigen prijs)</span><span class="aanname-value" style="color:var(--accent2)">€24 / 13 min</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== TABEL ====== -->
+  <div class="view" id="view-tabel">
+    <div class="year-btns">
+      <button class="year-btn active" onclick="setTableYear(1,this)">Jaar 1</button>
+      <button class="year-btn" onclick="setTableYear(2,this)">Jaar 2</button>
+      <button class="year-btn" onclick="setTableYear(3,this)">Jaar 3</button>
+    </div>
+    <div class="chart-card" style="overflow-x:auto">
+      <h3>Gedetailleerde maandtabel</h3>
+      <table class="data-table" id="main-table">
+        <thead>
+          <tr>
+            <th>Maand</th>
+            <th>Seizoen</th>
+            <th>Karting</th>
+            <th>Horeca</th>
+            <th>Arcade</th>
+            <th>Totaal</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>GlowKart Experience &mdash; Omzetprognose Dashboard &copy; 2025 &mdash; Groep 13</footer>
+</div>
+
+<script>
+// === DATA ===
+const maanden = ['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+const seizoen = [0.65, 0.85, 0.80, 1.05, 0.90, 0.90, 1.15, 1.20, 0.80, 1.00, 0.95, 1.15];
+
+const karting = {
+  j1: [15773, 20627, 19413, 25480, 21840, 21840, 27907, 29120, 19413, 24267, 23053, 27907],
+  j2: [26589, 34771, 32725, 42952, 36816, 36816, 47043, 49088, 32725, 40907, 38861, 47043],
+  j3: [36729, 48031, 45205, 59332, 50856, 50856, 64983, 67808, 45205, 56507, 53681, 64983]
+};
+const horeca = {
+  j1: [1972, 2578, 2427, 3185, 2730, 2730, 3488, 3640, 2427, 3033, 2882, 3488],
+  j2: [3324, 4346, 4091, 5369, 4602, 4602, 5880, 6136, 4091, 5113, 4858, 5880],
+  j3: [4591, 6004, 5651, 7417, 6357, 6357, 8123, 8476, 5651, 7063, 6710, 8123]
+};
+const arcade = {
+  j1: [986, 1289, 1213, 1593, 1365, 1365, 1744, 1820, 1213, 1517, 1441, 1744],
+  j2: [1662, 2173, 2045, 2685, 2301, 2301, 2940, 3068, 2045, 2557, 2429, 2940],
+  j3: [2296, 3002, 2825, 3708, 3179, 3179, 4061, 4238, 2825, 3532, 3355, 4061]
+};
+
+const totalsK = [276640, 466336, 644176];
+const totalsH = [34580, 58292, 80522];
+const totalsA = [17290, 29146, 40261];
+const totals  = [327606, 552248, 762849];
+
+function fmt(v) { return '€' + Math.round(v).toLocaleString('nl-BE'); }
+
+// === CHART DEFAULTS ===
+const baseOpts = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  animation: { duration: 600 }
+};
+
+// === OVERVIEW CHARTS ===
+new Chart(document.getElementById('cOverview'), {
+  type: 'bar',
+  data: {
+    labels: ['Jaar 1', 'Jaar 2', 'Jaar 3'],
+    datasets: [
+      { label: 'Karting',    data: totalsK, backgroundColor: '#ff6b35cc', stack: 's' },
+      { label: 'Horeca',     data: totalsH, backgroundColor: '#00d4aacc', stack: 's' },
+      { label: 'Arcade',     data: totalsA, backgroundColor: '#7c6fffcc', stack: 's' }
+    ]
+  },
+  options: { ...baseOpts,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + fmt(c.raw) } } },
+    scales: { x: { stacked: true, grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a' } }, y: { stacked: true, grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a', callback: v => '€' + (v/1000).toFixed(0) + 'k' } } }
+  }
+});
+
+const pieOpts = {
+  responsive: true, maintainAspectRatio: false, animation: { duration: 600 },
+  plugins: {
+    legend: { display: true, position: 'bottom', labels: { color: '#7a7a9a', font: { size: 12 }, boxWidth: 12, padding: 12 } },
+    tooltip: { callbacks: { label: c => ' ' + c.label + ': ' + fmt(c.raw) + ' (' + Math.round(c.raw / totals[c.dataIndex < 3 ? 0 : 2] * 100) + '%)' } }
+  }
+};
+new Chart(document.getElementById('cPie1'), {
+  type: 'doughnut',
+  data: { labels: ['Karting','Horeca','Arcade'], datasets: [{ data: [totalsK[0], totalsH[0], totalsA[0]], backgroundColor: ['#ff6b35','#00d4aa','#7c6fff'], borderWidth: 0, hoverOffset: 8 }] },
+  options: { ...pieOpts }
+});
+new Chart(document.getElementById('cPie3'), {
+  type: 'doughnut',
+  data: { labels: ['Karting','Horeca','Arcade'], datasets: [{ data: [totalsK[2], totalsH[2], totalsA[2]], backgroundColor: ['#ff6b35','#00d4aa','#7c6fff'], borderWidth: 0, hoverOffset: 8 }] },
+  options: { ...pieOpts }
+});
+
+new Chart(document.getElementById('cGrowth'), {
+  type: 'bar',
+  data: {
+    labels: ['Jaar 2 vs Jaar 1', 'Jaar 3 vs Jaar 2'],
+    datasets: [
+      { label: 'Karting',    data: [69, 38], backgroundColor: '#ff6b35cc' },
+      { label: 'Horeca',     data: [68, 38], backgroundColor: '#00d4aacc' },
+      { label: 'Arcade',     data: [68, 38], backgroundColor: '#7c6fffcc' }
+    ]
+  },
+  options: { ...baseOpts,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': +' + c.raw + '%' } } },
+    scales: { x: { grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a' } }, y: { grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a', callback: v => v + '%' } } }
+  }
+});
+
+// === MAAND CHARTS ===
+let monthChart = null;
+let currentYear = 1;
+
+function buildMonthly(y) {
+  if (monthChart) monthChart.destroy();
+  const kd = karting['j' + y], hd = horeca['j' + y], ad = arcade['j' + y];
+  const totM = kd.map((v,i) => v + hd[i] + ad[i]);
+  const avg = Math.round(totM.reduce((a,b) => a+b) / 12);
+  const peakI = totM.indexOf(Math.max(...totM));
+  const lowI = totM.indexOf(Math.min(...totM));
+  document.getElementById('mk-piek').textContent = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'][peakI];
+  document.getElementById('mk-piek-val').textContent = fmt(totM[peakI]) + ' totaal';
+  document.getElementById('mk-low').textContent = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'][lowI];
+  document.getElementById('mk-low-val').textContent = fmt(totM[lowI]) + ' totaal';
+  document.getElementById('mk-avg').textContent = fmt(avg);
+
+  monthChart = new Chart(document.getElementById('cMonthly'), {
+    type: 'bar',
+    data: {
+      labels: maanden,
+      datasets: [
+        { label: 'Karting', data: kd, backgroundColor: '#ff6b35cc', stack: 's' },
+        { label: 'Horeca',  data: hd, backgroundColor: '#00d4aacc', stack: 's' },
+        { label: 'Arcade',  data: ad, backgroundColor: '#7c6fffcc', stack: 's' }
+      ]
+    },
+    options: { ...baseOpts,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + fmt(c.raw) } } },
+      scales: { x: { stacked: true, grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a', autoSkip: false } }, y: { stacked: true, grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a', callback: v => '€' + (v/1000).toFixed(0) + 'k' } } }
+    }
+  });
+}
+
+new Chart(document.getElementById('cSeizoen'), {
+  type: 'line',
+  data: {
+    labels: maanden,
+    datasets: [
+      { label: 'Jaar 1', data: karting.j1.map((v,i) => v + horeca.j1[i] + arcade.j1[i]), borderColor: '#ff6b35', backgroundColor: '#ff6b3522', tension: 0.4, fill: false, pointRadius: 4, pointBackgroundColor: '#ff6b35' },
+      { label: 'Jaar 2', data: karting.j2.map((v,i) => v + horeca.j2[i] + arcade.j2[i]), borderColor: '#00d4aa', backgroundColor: '#00d4aa22', tension: 0.4, fill: false, pointRadius: 4, pointBackgroundColor: '#00d4aa' },
+      { label: 'Jaar 3', data: karting.j3.map((v,i) => v + horeca.j3[i] + arcade.j3[i]), borderColor: '#7c6fff', backgroundColor: '#7c6fff22', tension: 0.4, fill: false, pointRadius: 4, pointBackgroundColor: '#7c6fff' }
+    ]
+  },
+  options: { ...baseOpts,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + fmt(c.raw) } } },
+    scales: { x: { grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a', autoSkip: false } }, y: { grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a', callback: v => '€' + (v/1000).toFixed(0) + 'k' } } }
+  }
+});
+
+function setYear(y, btn) {
+  currentYear = y;
+  document.querySelectorAll('#view-maand .year-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  buildMonthly(y);
+}
+
+// === PRODUCTEN CHARTS ===
+new Chart(document.getElementById('cProducts'), {
+  type: 'bar',
+  data: {
+    labels: ['Karting', 'Horeca & Bar', 'Arcade'],
+    datasets: [
+      { label: 'Jaar 1', data: [totalsK[0], totalsH[0], totalsA[0]], backgroundColor: '#ff6b3599' },
+      { label: 'Jaar 2', data: [totalsK[1], totalsH[1], totalsA[1]], backgroundColor: '#00d4aa99' },
+      { label: 'Jaar 3', data: [totalsK[2], totalsH[2], totalsA[2]], backgroundColor: '#7c6fff99' }
+    ]
+  },
+  options: { ...baseOpts,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + fmt(c.raw) } } },
+    scales: { x: { grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a' } }, y: { grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a', callback: v => '€' + (v/1000).toFixed(0) + 'k' } } }
+  }
+});
+
+new Chart(document.getElementById('cKartGrow'), {
+  type: 'line',
+  data: {
+    labels: ['Jaar 1','Jaar 2','Jaar 3'],
+    datasets: [{ data: totalsK, borderColor: '#ff6b35', backgroundColor: '#ff6b3533', tension: 0.4, fill: true, pointRadius: 6, pointBackgroundColor: '#ff6b35' }]
+  },
+  options: { ...baseOpts,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.raw) } } },
+    scales: { x: { grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a' } }, y: { grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a', callback: v => '€' + (v/1000).toFixed(0) + 'k' } } }
+  }
+});
+
+new Chart(document.getElementById('cSecGrow'), {
+  type: 'line',
+  data: {
+    labels: ['Jaar 1','Jaar 2','Jaar 3'],
+    datasets: [
+      { label: 'Horeca', data: totalsH, borderColor: '#00d4aa', backgroundColor: '#00d4aa33', tension: 0.4, fill: true, pointRadius: 5, pointBackgroundColor: '#00d4aa' },
+      { label: 'Arcade', data: totalsA, borderColor: '#7c6fff', backgroundColor: '#7c6fff33', tension: 0.4, fill: true, pointRadius: 5, pointBackgroundColor: '#7c6fff' }
+    ]
+  },
+  options: { ...baseOpts,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + fmt(c.raw) } } },
+    scales: { x: { grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a' } }, y: { grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a', callback: v => '€' + (v/1000).toFixed(0) + 'k' } } }
+  }
+});
+
+const shareData = [0,1,2].map(i => {
+  const t = totalsK[i] + totalsH[i] + totalsA[i];
+  return { k: Math.round(totalsK[i]/t*100), h: Math.round(totalsH[i]/t*100), a: Math.round(totalsA[i]/t*100) };
+});
+new Chart(document.getElementById('cShare'), {
+  type: 'bar',
+  data: {
+    labels: ['Jaar 1','Jaar 2','Jaar 3'],
+    datasets: [
+      { label: 'Karting',    data: shareData.map(d=>d.k), backgroundColor: '#ff6b35cc', stack: 's' },
+      { label: 'Horeca',     data: shareData.map(d=>d.h), backgroundColor: '#00d4aacc', stack: 's' },
+      { label: 'Arcade',     data: shareData.map(d=>d.a), backgroundColor: '#7c6fffcc', stack: 's' }
+    ]
+  },
+  options: { ...baseOpts,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + c.raw + '%' } } },
+    scales: { x: { stacked: true, grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a' } }, y: { stacked: true, max: 100, grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a', callback: v => v + '%' } } }
+  }
+});
+
+// === SCENARIO ===
+let scChart = null;
+
+function updateScenario() {
+  const prijs = +document.getElementById('s-prijs').value;
+  const bezJ1 = +document.getElementById('s-bezJ1').value / 100;
+  const bezJ3 = +document.getElementById('s-bezJ3').value / 100;
+  const horPrijs = +document.getElementById('s-horeca').value;
+  const pct = +document.getElementById('s-pct').value / 100;
+  const bezJ2 = (bezJ1 + bezJ3) / 2;
+
+  document.getElementById('sv-prijs').textContent = '€' + prijs;
+  document.getElementById('sv-bezJ1').textContent = Math.round(bezJ1*100) + '%';
+  document.getElementById('sv-bezJ3').textContent = Math.round(bezJ3*100) + '%';
+  document.getElementById('sv-horeca').textContent = '€' + document.getElementById('s-horeca').value;
+  document.getElementById('sv-pct').textContent = Math.round(pct*100) + '%';
+
+  const sessWkJ1 = 200 * bezJ1 * 5 + 267 * 0.25 * 2;
+  const sessWkJ2 = 200 * bezJ2 * 5 + 267 * 0.40 * 2;
+  const sessWkJ3 = 200 * bezJ3 * 5 + 267 * 0.55 * 2;
+
+  const kartJ1 = sessWkJ1 * 52 * prijs;
+  const kartJ2 = sessWkJ2 * 52 * prijs;
+  const kartJ3 = sessWkJ3 * 52 * prijs;
+
+  const horJ1 = sessWkJ1 * 52 * pct * horPrijs;
+  const horJ2 = sessWkJ2 * 52 * pct * horPrijs;
+  const horJ3 = sessWkJ3 * 52 * pct * horPrijs;
+
+  const totJ1 = Math.round(kartJ1 + horJ1 + 17290);
+  const totJ2 = Math.round(kartJ2 + horJ2 + 29146);
+  const totJ3 = Math.round(kartJ3 + horJ3 + 40261);
+
+  document.getElementById('sc-j1').textContent = fmt(totJ1);
+  document.getElementById('sc-j2').textContent = fmt(totJ2);
+  document.getElementById('sc-j3').textContent = fmt(totJ3);
+
+  if (scChart) scChart.destroy();
+  scChart = new Chart(document.getElementById('cScenario'), {
+    type: 'bar',
+    data: {
+      labels: ['Jaar 1','Jaar 2','Jaar 3'],
+      datasets: [
+        { label: 'Scenario', data: [totJ1, totJ2, totJ3], backgroundColor: ['#ff6b35cc','#00d4aacc','#7c6fffcc'] },
+        { label: 'Origineel', data: [327606, 552248, 762849], backgroundColor: 'transparent', borderColor: '#7a7a9a', borderWidth: 2, type: 'line', tension: 0.4, pointRadius: 5, pointBackgroundColor: '#7a7a9a' }
+      ]
+    },
+    options: { ...baseOpts,
+      plugins: { legend: { display: true, labels: { color: '#7a7a9a', boxWidth: 12 } }, tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + fmt(c.raw) } } },
+      scales: { x: { grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a' } }, y: { grid: { color: '#2a2a3e' }, ticks: { color: '#7a7a9a', callback: v => '€' + (v/1000).toFixed(0) + 'k' } } }
+    }
+  });
+}
+updateScenario();
+
+// === TABEL ===
+let tableYear = 1;
+
+function buildTable(y) {
+  const k = karting['j' + y], h = horeca['j' + y], a = arcade['j' + y];
+  const names = ['Januari','Februari','Maart','April','Mei','Juni','Juli','Augustus','September','Oktober','November','December'];
+  let rows = '';
+  let totK=0, totH=0, totA=0, totT=0;
+  k.forEach((v,i) => {
+    const tot = v + h[i] + a[i];
+    totK+=v; totH+=h[i]; totA+=a[i]; totT+=tot;
+    rows += `<tr><td>${names[i]}</td><td>${seizoen[i].toFixed(2)}</td><td>${fmt(v)}</td><td>${fmt(h[i])}</td><td>${fmt(a[i])}</td><td>${fmt(tot)}</td></tr>`;
+  });
+  rows += `<tr class="total-row"><td>TOTAAL</td><td>—</td><td>${fmt(totK)}</td><td>${fmt(totH)}</td><td>${fmt(totA)}</td><td>${fmt(totT)}</td></tr>`;
+  document.getElementById('table-body').innerHTML = rows;
+}
+
+function setTableYear(y, btn) {
+  tableYear = y;
+  document.querySelectorAll('#view-tabel .year-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  buildTable(y);
+}
+
+// === NAV ===
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  event.target.classList.add('active');
+  if (id === 'maand' && !monthChart) buildMonthly(1);
+  if (id === 'tabel') buildTable(tableYear);
+}
+</script>
+</body>
+</html>
